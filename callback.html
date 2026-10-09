@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>OAuth Callback</title>
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 1rem; background: #f5f5f7; color: #1d1d1f; }
+  main { max-width: 640px; margin: 0 auto; background: #fff; border-radius: 8px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); }
+  h1 { font-size: 1.25rem; margin: 0 0 1rem; }
+  .error { background: #fdecea; color: #b00020; border: 1px solid #b00020; border-radius: 6px; padding: 0.75rem; margin-bottom: 1rem; font-weight: 600; word-break: break-word; }
+  .field { margin-bottom: 1rem; }
+  label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
+  .row { display: flex; gap: 0.5rem; }
+  input[type="text"] { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; font-size: 0.9rem; padding: 0.5rem; border: 1px solid #c7c7cc; border-radius: 6px; background: #fafafa; color: #1d1d1f; }
+  button { padding: 0.5rem 0.9rem; border: 1px solid #1d1d1f; border-radius: 6px; background: #1d1d1f; color: #fff; cursor: pointer; font-size: 0.9rem; min-width: 5rem; }
+  button.copied { background: #1a7f37; border-color: #1a7f37; }
+  .empty { color: #6e6e73; }
+  .note { font-size: 0.85rem; color: #6e6e73; margin-top: 1rem; }
+  @media (max-width: 480px) {
+    .row { flex-direction: column; }
+    input[type="text"] { font-size: 16px; }
+    button { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>OAuth Callback</h1>
+  <div id="error-banner" class="error" hidden></div>
+  <div id="fields"></div>
+  <p id="empty" class="empty" hidden>This is the OAuth redirect URI page. Nothing to show &mdash; no query parameters received.</p>
+  <p class="note">Code is one-time use and expires quickly. Exchange it right away.</p>
+</main>
+<script>
+(function () {
+  'use strict';
+
+  var NAMES = ['code', 'state', 'error', 'error_description'];
+  var COPY_LABEL = 'Copy';
+  var params = new URLSearchParams(window.location.search);
+  var fieldsEl = document.getElementById('fields');
+  var bannerEl = document.getElementById('error-banner');
+  var emptyEl = document.getElementById('empty');
+
+  var present = NAMES.filter(function (name) { return params.has(name); });
+
+  if (present.length === 0) {
+    emptyEl.hidden = false;
+    return;
+  }
+
+  // Error banner: values set via textContent / text nodes only.
+  if (params.has('error')) {
+    bannerEl.hidden = false;
+    bannerEl.textContent = 'Error: ' + params.get('error');
+    if (params.has('error_description')) {
+      bannerEl.appendChild(document.createElement('br'));
+      bannerEl.appendChild(document.createTextNode(params.get('error_description')));
+    }
+  }
+
+  function fallbackCopy(input) {
+    input.focus();
+    input.select();
+    input.setSelectionRange(0, input.value.length);
+    try {
+      return document.execCommand('copy');
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function flash(btn, text) {
+    btn.textContent = text;
+    btn.classList.add('copied');
+    setTimeout(function () {
+      btn.textContent = COPY_LABEL;
+      btn.classList.remove('copied');
+    }, 1500);
+  }
+
+  function copyValue(input, btn) {
+    function onFail() {
+      if (fallbackCopy(input)) {
+        flash(btn, 'Copied');
+      } else {
+        // Text is selected; user can press Ctrl+C / Cmd+C.
+        btn.textContent = COPY_LABEL;
+      }
+    }
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(input.value).then(function () {
+        flash(btn, 'Copied');
+      }, onFail);
+    } else {
+      onFail();
+    }
+  }
+
+  present.forEach(function (name) {
+    var id = 'f-' + name;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'field';
+
+    var label = document.createElement('label');
+    label.htmlFor = id;
+    label.textContent = name;
+
+    var row = document.createElement('div');
+    row.className = 'row';
+
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.id = id;
+    input.readOnly = true;
+    input.value = params.get(name);
+    input.setAttribute('aria-label', name);
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = COPY_LABEL;
+    btn.addEventListener('click', function () { copyValue(input, btn); });
+
+    row.appendChild(input);
+    row.appendChild(btn);
+    wrap.appendChild(label);
+    wrap.appendChild(row);
+    fieldsEl.appendChild(wrap);
+  });
+})();
+</script>
+</body>
+</html>
